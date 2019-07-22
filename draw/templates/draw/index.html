@@ -25,7 +25,9 @@
     paper.setup(canvas);
     var tool = new paper.Tool();
   
-   function getRandomColor() {
+  
+    //Source: https://stackoverflow.com/questions/1484506/random-color-generator
+    function getRandomColor() {
       var letters = '0123456789ABCDEF';
       var color = '#';
       for (var i = 0; i < 6; i++) {
@@ -48,22 +50,25 @@
     var socket = new WebSocket('wss://p3-websockets-sophie2220-sophie2220794113.codeanyapp.com/ws/draw');
   
     tool.onMouseMove = function(event) {
+      path.add(event.point);
       var point = {"x": event.point.x, "y":event.point.y, "color": thisColor, "id": id};
       var pointString = JSON.stringify(point);
       socket.send(pointString);
      }
   
-    socket.onmessage = function(receivedMessage) {
-      var data = JSON.parse(receivedMessage.data);
-      var point = new paper.Point(data['x'], data['y']);
-      if (data['id'] in paths) {
-        paths[data['id']].add(point);
-      } else {
-        paths[data['id']]= new paper.Path();
-        paths[data['id']].strokeColor = data['color'];
-        paths[data['id']].strokeWidth = 2;
-        paths[data['id']].add(point);
-      }
+    if (window.location.href.indexOf("?size=large") > -1) {
+      socket.onmessage = function(receivedMessage) {
+        var data = JSON.parse(receivedMessage.data);
+        var point = new paper.Point(data['x'], data['y']);
+        if (data['id'] in paths) {
+          paths[data['id']].add(point);
+        } else {
+          paths[data['id']]= new paper.Path();
+          paths[data['id']].strokeColor = data['color'];
+          paths[data['id']].strokeWidth = 2;
+          paths[data['id']].add(point);
+        }
+     }
     };
 
 </script>
