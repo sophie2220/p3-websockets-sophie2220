@@ -25,24 +25,45 @@
     paper.setup(canvas);
     var tool = new paper.Tool();
   
+   function getRandomColor() {
+      var letters = '0123456789ABCDEF';
+      var color = '#';
+      for (var i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+  
+    var id = Math.random();
+    var paths = {id: path};
+  
     var path = new paper.Path(); 
-    path.strokeColor = "black";
-
+    var thisColor = getRandomColor();
+    path.strokeColor = thisColor;
+    path.strokeWidth = 2;
+  
     // getting the URL (you may want to use for Exercise 3)
     var url = window.location.href;
   
     var socket = new WebSocket('wss://p3-websockets-sophie2220-sophie2220794113.codeanyapp.com/ws/draw');
   
     tool.onMouseMove = function(event) {
-      var point = {"x": event.point.x, "y":event.point.y,};
-      var pointString = JSON.stringify(point)
+      var point = {"x": event.point.x, "y":event.point.y, "color": thisColor, "id": id};
+      var pointString = JSON.stringify(point);
       socket.send(pointString);
      }
   
     socket.onmessage = function(receivedMessage) {
       var data = JSON.parse(receivedMessage.data);
-      var point = new paper.Point(data.x, data.y);
-      path.add(point);
+      var point = new paper.Point(data['x'], data['y']);
+      if (data['id'] in paths) {
+        paths[data['id']].add(point);
+      } else {
+        paths[data['id']]= new paper.Path();
+        paths[data['id']].strokeColor = data['color'];
+        paths[data['id']].strokeWidth = 2;
+        paths[data['id']].add(point);
+      }
     };
 
 </script>
