@@ -24,8 +24,7 @@
     var canvas = document.getElementById('myCanvas');
     paper.setup(canvas);
     var tool = new paper.Tool();
-  
-  
+    
     //Source: https://stackoverflow.com/questions/1484506/random-color-generator
     function getRandomColor() {
       var letters = '0123456789ABCDEF';
@@ -42,21 +41,22 @@
     var path = new paper.Path(); 
     var thisColor = getRandomColor();
     path.strokeColor = thisColor;
-    path.strokeWidth = 2;
+    path.strokeWidth = 4;
   
     // getting the URL (you may want to use for Exercise 3)
     var url = window.location.href;
   
     var socket = new WebSocket('wss://p3-websockets-sophie2220-sophie2220794113.codeanyapp.com/ws/draw');
   
-    tool.onMouseMove = function(event) {
+     tool.onMouseMove = function(event) {
       path.add(event.point);
       var point = {"x": event.point.x, "y":event.point.y, "color": thisColor, "id": id};
       var pointString = JSON.stringify(point);
       socket.send(pointString);
      }
   
-    if (window.location.href.indexOf("?size=large") > -1) {
+    
+    if (url.indexOf("?size=large") > -1) {
       socket.onmessage = function(receivedMessage) {
         var data = JSON.parse(receivedMessage.data);
         var point = new paper.Point(data['x'], data['y']);
@@ -65,11 +65,25 @@
         } else {
           paths[data['id']]= new paper.Path();
           paths[data['id']].strokeColor = data['color'];
-          paths[data['id']].strokeWidth = 2;
+          paths[data['id']].strokeWidth = 4;
           paths[data['id']].add(point);
         }
      }
-    };
-
+    }
+    window.addEventListener('devicemotion', function(event) {
+       var accel = event.acceleration;
+       if (accel.x > 10 || accel.y > 10 || accel.z > 10) {
+         paper.project.clear();
+       }
+     });
+    
+    var gamma = 0;
+    window.addEventListener('deviceorientation', function(event) {
+       if (event.gamma > 30 && gamma < 30) {
+         path.strokeColor = getRandomColor();
+       }
+       gamma = event.gamma;
+     });
+    
 </script>
 </html>
