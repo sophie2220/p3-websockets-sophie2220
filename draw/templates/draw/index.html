@@ -3,87 +3,252 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>P4 Drawing</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>P4 Drawing</title>
 
-    <link rel="stylesheet" type="text/css" href="{% static 'draw/vendor/bootstrap/css/bootstrap.min.css' %}">
-    <script type="text/javascript" src="{% static 'draw/vendor/jquery/jquery-3.3.1.min.js' %}"></script>
-    <script type="text/javascript" src="{% static 'draw/vendor/paper/paper-full.min.js' %}"></script>
+  <link rel="stylesheet" type="text/css" href="{% static 'draw/vendor/bootstrap/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" type="text/css" href="{% static 'draw/vendor/jqcloud/jqcloud.min.css' %}">
+  <script type="text/javascript" src="{% static 'draw/vendor/jquery/jquery-3.3.1.min.js' %}"></script>
+  <script type="text/javascript" src="{% static 'draw/vendor/paper/paper-full.min.js' %}"></script>
+  <script src="{% static 'draw/vendor/jqcloud/jqcloud.min.js' %}"></script>
 
-    <style type="text/css">
-    </style>
+  <style type="text/css">
+    body {
+      text-align: center;
+      background-image: url("https://wallpapercave.com/wp/UNZAzkd.jpg");
+    }
+    #cloud-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    #structure {
+      width: 20vw;
+      margin: auto;
+    }
+    #toggleMode {
+      text-align: left;
+    }
+    #experiment {
+      width: 10vw;
+      margin: auto;
+    }
+  </style>
 
 </head>
 <body>
-    <!-- You may change the dimensions of this canvas -->
-    <canvas id="myCanvas" width="750px" height="750px"></canvas>
+  <div class="custom-control custom-switch" id="toggleMode">
+    <input type="checkbox" class="custom-control-input" id="darkMode">
+    <label class="custom-control-label" for="darkMode">Dark Mode</label>
+  </div>
+  <form id="feedback-form">
+    <h1 id = "feedback">
+      Feedback Form
+    </h1>
+    <div id="prompt">
+      Which type of data structure did you have the most trouble understanding?
+    </div>
+    <select class="form-control" id="experiment">
+      <option value="1">Preset 1</option>
+      <option value="2">Preset 2</option>
+    </select>
+    <input type="text" id="structure" class="form-control" aria-label="feedback" aria-describedby="prompt"><br><br>
+    <button type = "button" id = "submit" class="btn btn-primary">Submit</button>
+    <div id="ex">
+      <button type = "button" value="a" class="btn btn-primary test">Send first batch</button>
+      <button type = "button" value="b" class="btn btn-primary test">Send second batch</button>
+      <button type = "button" value="c" class="btn btn-primary test">Send third batch</button>
+    </div>
+  </form>
+  <div id = "cloud-container">
+  </div>
 </body>
 <script>
-
-    // setting up the canvas and one paper tool
-    var canvas = document.getElementById('myCanvas');
-    paper.setup(canvas);
-    var tool = new paper.Tool();
+  $(document).ready(function() {
+    var colorful = true;
+    var start; // Timer starts on message received
     
-    //Source: https://stackoverflow.com/questions/1484506/random-color-generator
-    function getRandomColor() {
-      var letters = '0123456789ABCDEF';
-      var color = '#';
-      for (var i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-      }
-      return color;
-    }
-  
-    var id = Math.random();
-    var paths = {id: path};
-  
-    var path = new paper.Path(); 
-    var thisColor = getRandomColor();
-    path.strokeColor = thisColor;
-    path.strokeWidth = 4;
-  
-    // getting the URL (you may want to use for Exercise 3)
     var url = window.location.href;
-  
     var socket = new WebSocket('wss://p3-websockets-sophie2220-sophie2220794113.codeanyapp.com/ws/draw');
-  
-     tool.onMouseMove = function(event) {
-      path.add(event.point);
-      var point = {"x": event.point.x, "y":event.point.y, "color": thisColor, "id": id};
-      var pointString = JSON.stringify(point);
-      socket.send(pointString);
-     }
-  
+
+    var words = {}; // {String: number}
+    var data = []; // Array of object literals w/ attributes TEXT, WEIGHT[, HANDLERS]
+    var colors = [];
     
-    if (url.indexOf("?size=large") > -1) {
-      socket.onmessage = function(receivedMessage) {
-        var data = JSON.parse(receivedMessage.data);
-        var point = new paper.Point(data['x'], data['y']);
-        if (data['id'] in paths) {
-          paths[data['id']].add(point);
+    function drawWordCloud() {
+      if (document.getElementById('cloud-container').className == 'jqcloud') {
+        update();
+      } else {
+        if (colorful) {
+          $('#cloud-container').jQCloud(data, {
+            fontSize: [160, 140, 120, 100, 80, 70, 60, 50, 40, 30, 20],
+            colors: ["BlueViolet", "IndianRed", "MediumAquaMarine", "Orchid", "SpringGreen", "LightSkyBlue", "Sienna", "Teal", "GoldenRod", "DarkOrange", "DarkSalmon"]
+          });
         } else {
-          paths[data['id']]= new paper.Path();
-          paths[data['id']].strokeColor = data['color'];
-          paths[data['id']].strokeWidth = 4;
-          paths[data['id']].add(point);
+          $('#cloud-container').jQCloud(data, {
+            fontSize: [160, 140, 120, 100, 80, 70, 60, 50, 40, 30, 20],
+            colors: ["White"]
+          });
         }
-     }
+      }
     }
-    window.addEventListener('devicemotion', function(event) {
-       var accel = event.acceleration;
-       if (accel.x > 10 || accel.y > 10 || accel.z > 10) {
-         paper.project.clear();
-       }
-     });
+   
+    function build() { // Construct array of object literals to feed to jQCloud
+      data.length = 0; // Clear array
+      var maxWeight = findMaxWeight();
+      for (var key in words) {
+        if (words[key] != maxWeight) {
+          var w = {text: key, weight: words[key]};
+        } else {
+          var w = {text: key, weight: words[key], handlers: {
+            click: function() {
+              console.log('You clicked the word in ' + ((new Date() - start)/1000 + " seconds") + '!');
+            }
+          }}
+        }
+        data.push(w);
+      }
+    }
     
-    var gamma = 0;
-    window.addEventListener('deviceorientation', function(event) {
-       if (event.gamma > 30 && gamma < 30) {
-         path.strokeColor = getRandomColor();
-       }
-       gamma = event.gamma;
-     });
+    function findMaxWeight() { // Find the largest word
+      var max = 0;
+      for (var key in words) {
+        if (words[key] > max) {
+          max = words[key];
+        }
+      }
+      return max;
+    }
     
+    function update() {
+      $('#cloud-container').jQCloud('update', data);
+    }
+    
+    $('#darkMode').click(function() {
+      colorful = !colorful;
+      if (colorful) {
+        document.body.style.background = "white";
+        $('#toggleMode').css('color', 'black');
+        $('span').each(function(i) {
+          this.style.color = colors[i];
+        });
+        colors.length = 0;
+      } else {
+        document.body.style.background = "#1f1c19";
+        $('#toggleMode').css('color', 'white');
+        $('span').each(function() { // Save colors of the word cloud to be retrieved when switching to light mode
+          colors.push(this.style.color);
+          this.style.color = 'white';
+        });
+      }
+    });
+
+    if (url.indexOf("?size=large") > -1) {
+      $('#feedback-form').hide();
+      if (colorful) {
+        document.body.style.background = "white";
+      } else {
+        document.body.style.background = "#1f1c19";
+      }
+      socket.onmessage = function(e) {
+        var msg = JSON.parse(e.data);
+        if (msg.experiment == 1) {
+          words[msg.text] = msg.weight;
+        } else if (msg.text in words) {
+          words[msg.text]++;
+        } else {
+          words[msg.text] = 1;
+        }
+        build();
+        drawWordCloud(); // Update the word cloud each time a message is received
+        start = new Date(); // Start timer
+      };
+    } else if (url.indexOf("?mode=test") > -1) {
+      $('#toggleMode').hide();
+      $('#structure').hide();
+      $('#prompt').hide();
+      $('#feedback').hide();
+      $('#submit').hide();
+      $('.test').click(function() {
+        sendPreset(presets[$('#experiment').val()], $(this).val());
+      });
+    } else {
+      $('#toggleMode').hide();
+      $('#experiment').hide();
+      $('#ex').hide();
+      $( "#submit" ).click(function() {
+        var msg = {
+          experiment: 0,
+          text: document.getElementById('structure').value.toLowerCase()
+        };
+        socket.send(JSON.stringify(msg));
+      });
+    }
+    
+    function sendPreset(preset, index) {
+      for (var i = 0; i < preset[index].length; i++) {
+        preset[index][i].experiment = 1;
+        socket.send(JSON.stringify(preset[index][i]));
+      }
+    }
+    
+    var presets = {
+      1: {
+        a: [
+          {text: "array", weight: 3.2},
+          {text: "linked list", weight: 4},
+          {text: "stack", weight: 2},
+          {text: "priority queue", weight: 1.6}
+        ],
+        b: [
+          {text: "linked list", weight: 3.3},
+          {text: "array", weight: 1.7},
+          {text: "stack", weight: 3},
+          {text: "binary tree", weight: 5.4},
+          {text: "binary search tree", weight: 4.5},
+          {text: "priority queue", weight: 2.4}
+        ],
+        c: [
+          {text: "binary tree", weight: 1},
+          {text: "stack", weight: 1.5},
+          {text: "binary search tree", weight: 5.2},
+          {text: "trie", weight: 2.4},
+          {text: "kd tree", weight: 6},
+          {text: "red-black tree", weight: 3},
+          {text: "priority queue", weight: 6.75},
+          {text: "array", weight: 4},
+          {text: "treap", weight: 3.4},
+          {text: "ternary tree", weight: 4.7}
+        ]
+      },
+      2: {
+        a: [
+          {text: "array", weight: 1.6},
+          {text: "linked list", weight: 3.2},
+          {text: "stack", weight: 4},
+          {text: "priority queue", weight: 2}
+        ],
+        b: [
+          {text: "linked list", weight: 1.7},
+          {text: "array", weight: 5.4},
+          {text: "stack", weight: 2.4},
+          {text: "binary tree", weight: 4.5},
+          {text: "binary search tree", weight: 3},
+          {text: "priority queue", weight: 3.3}
+        ],
+        c: [
+          {text: "binary tree", weight: 3},
+          {text: "stack", weight: 4},
+          {text: "binary search tree", weight: 2},
+          {text: "trie", weight: 5.2},
+          {text: "kd tree", weight: 1.5},
+          {text: "red-black tree", weight: 5.9},
+          {text: "priority queue", weight: 1.4},
+          {text: "array", weight: 2.4},
+          {text: "treap", weight: 6.75},
+          {text: "ternary tree", weight: 2}
+        ]
+      }
+    };
+  });
 </script>
 </html>
